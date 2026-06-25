@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M13 視訊通話偽裝測試</title>
+    <title>M13 實體通道硬核解鎖</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; background-color: #1c1c1e; color: white; padding: 10px; }
         .container { background: #2c2c2e; padding: 15px; border-radius: 10px; width: 90%; max-width: 500px; margin: 20px auto; }
@@ -16,7 +16,7 @@
 <body>
 
     <h1>單鏡頭獨立通道切換測試</h1>
-    <p>【視訊通話極限偽裝版】</p>
+    <p>【全實體硬體規格綑綁版】</p>
     <div id="status">請先點擊下方按鈕讀取硬體清單</div>
     
     <button id="initBtn" onclick="initDeviceList()">1. 讀取並列出所有鏡頭</button>
@@ -35,9 +35,9 @@
         async function initDeviceList() {
             const statusDiv = document.getElementById('status');
             const select = document.getElementById('cameraSelect');
-            statusDiv.innerText = "正在請求相機權限...";
+            statusDiv.innerText = "正在請求相機與語音權限...";
             try {
-                // 初始權限請求也綁定音訊，讓系統判定這是「通訊行為」
+                // 強制同時索取音訊與視訊實體權限
                 await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
@@ -61,7 +61,7 @@
         async function startSingleCamera(deviceId) {
             const video = document.getElementById('mainVideo');
             const statusDiv = document.getElementById('status');
-            statusDiv.innerText = "正在切換通道...";
+            statusDiv.innerText = "正在掐斷舊通道...";
 
             if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
@@ -69,32 +69,35 @@
                 video.srcObject = null;
             }
 
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 600)); // 延長緩衝到0.6秒，給硬體充足時間
 
-            // 【核心偽裝大改動】：完全複製高階視訊會議 (WebRTC) 的硬體調度參數
+            // 【終極改動】：灌入最完整的實體音道、聲學參數與影像硬體指標
             const constraints = {
                 audio: {
-                    echoCancellation: true, // 開啟回音消除
-                    noiseSuppression: true, // 開啟雜音抑制
-                    autoGainControl: true   // 開啟自動增益
+                    echoCancellation: { exact: true }, // 強制實體硬體回音消除
+                    noiseSuppression: { exact: true }, // 強制實體降噪
+                    autoGainControl: { exact: true },  // 強制自動增益
+                    channelCount: { exact: 1 },         // 強制單聲道（標準通話音道）
+                    sampleRate: { ideal: 48000 },      // 注入標準高音質通話取樣率 (48kHz)
+                    sampleSize: { ideal: 16 }          // 16位元實體音訊深度
                 },
                 video: {
                     deviceId: { exact: deviceId },
-                    // 以下是 VDO.Ninja 常用來強迫手機解鎖頻寬的會議進階設定
-                    resizeMode: "none",     // 告訴系統：禁止裁剪，直接把原始硬體流噴出來
-                    frameRate: { ideal: 30, max: 60 } // 要求標準會議張數
+                    // 塞入標準通話的實體影像寬高比例（不限制死，用推薦制，但綁定會議標籤）
+                    aspectRatio: { ideal: 1.7777777778 }, // 16:9 實體寬高比
+                    frameRate: { ideal: 30 }
                 }
             };
 
-            statusDiv.innerText = "正在向系統發送視訊通話請求...";
+            statusDiv.innerText = "正在強行突進實體通道...";
 
             try {
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = currentStream;
-                statusDiv.innerText = "【成功】已成功偽裝成視訊通話！畫面輸出中。";
+                statusDiv.innerText = "【成功】已強行突進實體通道！畫面輸出中。";
             } catch (err) {
                 console.error(err);
-                statusDiv.innerText = `偽裝失敗。錯誤: ${err.name}`;
+                statusDiv.innerText = `突進失敗。錯誤: ${err.name} (底層拒絕交出實體控制權)`;
             }
         }
     </script>
