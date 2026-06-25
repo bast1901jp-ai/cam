@@ -3,74 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>三星 M13 鏡頭通道切換測試</title>
+    <title>M13 視訊通話偽裝測試</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background-color: #1c1c1e;
-            color: white;
-            padding: 10px;
-        }
-        .container {
-            background: #2c2c2e;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            width: 90%;
-            max-width: 500px;
-            margin: 20px auto;
-        }
-        select {
-            width: 90%;
-            padding: 12px;
-            font-size: 16px;
-            border-radius: 8px;
-            background-color: #3a3a3c;
-            color: white;
-            border: 1px solid #545456;
-            margin-bottom: 15px;
-        }
-        video {
-            width: 100%;
-            height: auto;
-            border-radius: 5px;
-            background-color: black;
-        }
-        button {
-            background-color: #007aff;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            font-size: 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            margin: 10px;
-            font-weight: bold;
-            width: 90%;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        .gallery img {
-            width: 90%;
-            max-width: 400px;
-            border: 2px solid white;
-            border-radius: 5px;
-            margin-top: 15px;
-        }
-        #status {
-            color: #ff9500;
-            margin: 10px;
-            font-weight: bold;
-        }
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #1c1c1e; color: white; padding: 10px; }
+        .container { background: #2c2c2e; padding: 15px; border-radius: 10px; width: 90%; max-width: 500px; margin: 20px auto; }
+        select { width: 90%; padding: 12px; font-size: 16px; border-radius: 8px; background-color: #3a3a3c; color: white; margin-bottom: 15px; }
+        video { width: 100%; height: auto; border-radius: 5px; background-color: black; }
+        button { background-color: #007aff; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer; margin: 10px; font-weight: bold; width: 90%; }
+        #status { color: #ff9500; margin: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <h1>單鏡頭獨立通道切換測試</h1>
-    <p>一次只點名一顆，釋放硬體頻寬限制</p>
-    
+    <p>【視訊通話極限偽裝版】</p>
     <div id="status">請先點擊下方按鈕讀取硬體清單</div>
     
     <button id="initBtn" onclick="initDeviceList()">1. 讀取並列出所有鏡頭</button>
@@ -80,129 +26,77 @@
         <select id="cameraSelect" disabled>
             <option>請先讀取鏡頭...</option>
         </select>
-
         <video id="mainVideo" autoplay playsinline></video>
-        
-        <button id="snapBtn" onclick="takePhoto()" style="background-color: #34c759;">2. 當前畫面拍照</button>
     </div>
-
-    <h3>拍照成品</h3>
-    <div class="gallery" id="gallery"></div>
-
-    <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
         let currentStream = null;
 
-        // Step 1: 獲取權限並列出所有公開的硬體鏡頭
         async function initDeviceList() {
             const statusDiv = document.getElementById('status');
             const select = document.getElementById('cameraSelect');
-            
             statusDiv.innerText = "正在請求相機權限...";
-            
             try {
-                await navigator.mediaDevices.getUserMedia({ video: true });
+                // 初始權限請求也綁定音訊，讓系統判定這是「通訊行為」
+                await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                
                 select.innerHTML = '';
                 
-                if (videoDevices.length === 0) {
-                    statusDiv.innerText = "找不到任何視訊輸入硬體。";
-                    return;
-                }
-
                 videoDevices.forEach((device, index) => {
                     const option = document.createElement('option');
                     option.value = device.deviceId;
                     option.text = device.label || `未命名硬體鏡頭 ${index + 1}`;
                     select.appendChild(option);
                 });
-
                 select.disabled = false;
-                statusDiv.innerText = `成功抓到 ${videoDevices.length} 個硬體設備！請在選單切換測試。`;
-
+                statusDiv.innerText = `成功抓到 ${videoDevices.length} 個硬體設備！`;
                 select.onchange = () => startSingleCamera(select.value);
-                
-                // 預設開啟清單上的第一顆鏡頭
                 startSingleCamera(videoDevices[0].deviceId);
-
             } catch (err) {
-                console.error("讀取清單失敗:", err);
                 statusDiv.innerText = "權限遭拒，或無法取得鏡頭清單。";
             }
         }
 
-        // Step 2: 獨立開啟指定的鏡頭（寬鬆模式，不限制解析度）
         async function startSingleCamera(deviceId) {
             const video = document.getElementById('mainVideo');
             const statusDiv = document.getElementById('status');
+            statusDiv.innerText = "正在切換通道...";
 
-            statusDiv.innerText = "正在徹底釋放前一個硬體通道...";
-
-            // 徹底關閉前一個串流
             if (currentStream) {
-                currentStream.getTracks().forEach(track => {
-                    track.stop();
-                });
+                currentStream.getTracks().forEach(track => track.stop());
                 currentStream = null;
                 video.srcObject = null;
             }
 
-            // 刻意延遲 300 毫秒，給手機處理器緩衝時間
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 500));
 
-            statusDiv.innerText = "正在嘗試最寬鬆的硬體相容模式...";
-
-            // 移除硬性解析度限制，讓手機自己決定输出大小，破除 NotReadableError
+            // 【核心偽裝大改動】：完全複製高階視訊會議 (WebRTC) 的硬體調度參數
             const constraints = {
+                audio: {
+                    echoCancellation: true, // 開啟回音消除
+                    noiseSuppression: true, // 開啟雜音抑制
+                    autoGainControl: true   // 開啟自動增益
+                },
                 video: {
-                    deviceId: { exact: deviceId }
+                    deviceId: { exact: deviceId },
+                    // 以下是 VDO.Ninja 常用來強迫手機解鎖頻寬的會議進階設定
+                    resizeMode: "none",     // 告訴系統：禁止裁剪，直接把原始硬體流噴出來
+                    frameRate: { ideal: 30, max: 60 } // 要求標準會議張數
                 }
             };
+
+            statusDiv.innerText = "正在向系統發送視訊通話請求...";
 
             try {
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = currentStream;
-                statusDiv.innerText = "【成功】硬體通道已打通！畫面輸出中。";
+                statusDiv.innerText = "【成功】已成功偽裝成視訊通話！畫面輸出中。";
             } catch (err) {
-                console.error("第一輪嘗試失敗:", err);
-                
-                // 備用方案：如果指定 ID 被擋，嘗試通用的後置鏡頭呼叫
-                statusDiv.innerText = "正在切換至極限相容模式...";
-                try {
-                    currentStream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: { exact: "environment" } }
-                    });
-                    video.srcObject = currentStream;
-                    statusDiv.innerText = "【成功】已透過極限相容模式開啟後鏡頭！";
-                } catch (finalErr) {
-                    statusDiv.innerText = `完全被系統鎖死。錯誤: ${err.name}`;
-                }
+                console.error(err);
+                statusDiv.innerText = `偽裝失敗。錯誤: ${err.name}`;
             }
-        }
-
-        // Step 3: 拍照功能
-        function takePhoto() {
-            const video = document.getElementById('mainVideo');
-            const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
-            const gallery = document.getElementById('gallery');
-
-            if (!currentStream || video.videoWidth === 0) {
-                alert('當前鏡頭沒有畫面，無法拍照！');
-                return;
-            }
-
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            const imgUrl = canvas.toDataURL('image/jpeg');
-            gallery.innerHTML = `<img src="${imgUrl}" alt="拍攝成品">`;
         }
     </script>
 </body>
 </html>
-
